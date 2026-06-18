@@ -5,7 +5,7 @@ function img = make_grating(TrialRecord, MLConfig)
 lab = "Ray"; % Required for retrieving the correct monitor specifications when working across labs
 
 % read required variables from TrialRecord struct
-stim_per_trial = TrialRecord.Editable.stim_per_trial; % TrialRecord.User.conds_per_trial;
+stim_per_trial = TrialRecord.User.stim_per_trial; % TrialRecord.User.conds_per_trial;
 stim_idx = TrialRecord.User.stim_idx;
 
 var_list = string(fieldnames(TrialRecord.CurrentConditionInfo))';
