@@ -52,7 +52,7 @@ if isempty(stimTable)
     % -----------------------------
     if isempty(tacs_loaded)
 
-        tacs_params    % <-- your JSON parameter script
+        tacsParams    % <-- your JSON parameter script
 
         TrialRecord.User.JSONIntensity = JSONIntensity;
         TrialRecord.User.JSONtACS = JSONtACS;
