@@ -1,9 +1,9 @@
-function [C,timingfile,userdefined_trialholder] = displayGratingsUserloop(MLConfig,TrialRecord)
+function [C,timingfile,userdefined_trialholder] = displayGratingsUserloop(~,TrialRecord)
 % Adapted from Pai's grating completion protocol
 % default return value
 C = [];
 % timingfile = 'displayGratingsTiming.m';
-timingfile = 'displayGratingsTimingAdapter.m';      % Timing file that uses the Cerestim Adapter
+timingfile = 'displayGratingsTimingtACS.m';      % Timing file that uses the tACSAdapter Adapter
 userdefined_trialholder = '';
 
 % Number of total blocks, in case the task is to be quit after an exact
@@ -23,122 +23,186 @@ persistent stimTable
 persistent stimLength
 persistent blockSum
 
-if isempty(stimTable)    
+persistent lsl_init
+persistent tacs_loaded
 
+if isempty(stimTable)
+
+    % -----------------------------
+    % Initialize LSL outlet
+    % -----------------------------
+    if isempty(lsl_init)
+        Start_up();          % your LSL initialization script
+        TrialRecord.User.outlet = outlet;
+        lsl_init = true;
+
+        disp('------------------------------------------')
+        disp('1. Open stimulation GUI')
+        disp('2. Login to GUI')
+        disp('3. Connect GUI to stimulation device')
+        disp('------------------------------------------')
+
+        pause(4);
+    end
+    % % 
+    TrialRecord.User.currentStimulus = 1;
+
+    % -----------------------------
+    % Load tACS parameters
+    % -----------------------------
+    if isempty(tacs_loaded)
+
+        tacs_params    % <-- your JSON parameter script
+
+        TrialRecord.User.JSONIntensity = JSONIntensity;
+        TrialRecord.User.JSONtACS = JSONtACS;
+        TrialRecord.User.JSONDuration = JSONDuration;
+        TrialRecord.User.JSONDelay = JSONDelay;
+        TrialRecord.User.JSONRampUp = JSONRampUp;
+        TrialRecord.User.JSONaddChannel2 = JSONaddChannel2;
+        % TrialRecord.User.JSONaddChannel14 = JSONaddChannel14;
+        TrialRecord.User.JSONLoad = JSONLoad;
+        TrialRecord.User.JSONstartStimulation = JSONstartStimulation;
+        TrialRecord.User.JSONstopStimulation = JSONstopStimulation;
+        % % 
+        TrialRecord.User.out = outlet;
+
+        % Send configuration commands once
+        outlet.push_sample({JSONIntensity}); pause(0.5)
+        outlet.push_sample({JSONtACS}); pause(0.5)
+        outlet.push_sample({JSONDuration}); pause(0.5)
+        outlet.push_sample({JSONDelay}); pause(0.5)
+        outlet.push_sample({JSONRampUp}); pause(0.5)
+        outlet.push_sample({JSONaddChannel2}); pause(0.5)
+        % outlet.push_sample({JSONaddChannel14}); pause(0.5)
+        outlet.push_sample({JSONFrequency2}); pause(0.5)
+        % outlet.push_sample({JSONFrequency14}); pause(0.5)
+        % % outlet.push_sample({JSONLoad}); pause(0.5)
+
+        tacs_loaded = true;
+
+    end    
+    
     % Prerequisite variables (HARDCODED):
     % Grating parameters
-    params.RF = ["IN"]; % Receptive Field (RF) conditions, IN/OUT
+    params.RF = "IN"; % Receptive Field (RF) conditions, IN/OUT
     params.azi = 0; % Azimuths (deg), V1_dona = -1.75, V4_dona = -1.35
     params.ele = 0; % Elevations (deg), V1_dona = -2.5, V4_dona = -0.6
     params.radii = 1000; % Aperture radii (deg)
     params.sf = 0.5*(2.^(0:3)); % Spatial Frequencies (SFs) (cpd)
     params.ori = (0:45:135); % Orientations (deg)
-    params.con = 25*(2.^(1)); % Contrasts (%)
+    params.con = [25,50,100]; % Contrasts (%)
     
-    % Microstimulation parameters
-    params.amp = 16;   % Current amplitude (uA)
-    params.pulses = 7;  % Number of biphasic pulses
-    params.frequency = [0,20,30,40,50,60,70,80];  % Frequency of biphasic pulses
-    params.duration = 300; % ms; When duration > 0, pulses is determined by frequency
-
-
     % Creating the stimulus table:
     stimTable = create_stimtable(params=params);
     stimLength = size(stimTable, 1);
     TrialRecord.User.StimTable = stimTable;
     
-    % Define the channel to be stimulated
-    % Ch 12 -> elec1-27
-    % Ch 95 -> elec1-1
-    TrialRecord.User.MicrostimChannel = 95;
-
-    %%
-    % Create stimulator object
-    stimulator = cerestim96();
-    
-    %%
-    
-    % Scan for devices
-    DeviceList = stimulator.scanForDevices();    
-
-    if ~isempty(DeviceList)
-    
-        % Select a device to connect to
-        stimulator.selectDevice(0);
-        
-        % Connect to the stimulator
-        stimulator.connect; 
-                
-        TrialRecord.User.Stimulator = stimulator;
-    else
-        TrialRecord.User.Stimulator = [];
-        disp("No Stimulator Devices conected");
-    end
+    blockSum = 0;
+    stimList = [];
+    stimBorrow = [];
+    stimPrev = [];
     return
 end
+   
 
-stim_per_trial = TrialRecord.Editable.stim_per_trial;
-% get current block and current condition
-block = TrialRecord.CurrentBlock;
-condition = TrialRecord.CurrentCondition;
+stim_per_trial = 3;
+TrialRecord.User.stim_per_trial = stim_per_trial;
 
-if isempty(TrialRecord.TrialErrors)                                         % If its the first trial
-    condition = 1;                                                          % set the condition # to 1
-elseif ~isempty(TrialRecord.TrialErrors) && 0==TrialRecord.TrialErrors(end) % If the last trial is a success
-    stimList = setdiff(stimList, stimPrev);                                 % remove previous trial stimuli from the list of stimuli
-    condition = mod(condition+stim_per_trial-1, stimLength)+1;                 % increment the condition # by stim_per_trial
+% % 
+TrialRecord.User.currentStimulus = 1;
+
+% % TrialRecord.User.out.push_sample({TrialRecord.User.JSONLoad}); 
+% pause(1);
+
+if isfield(TrialRecord,'CurrentBlock')
+    block = TrialRecord.CurrentBlock;
+else
+    block = 1;
 end
 
-% Initialize the conditions for a new block
-if isempty(stimList)                                            % If there are no stimuli left in the block
-    stimList = setdiff(1:stimLength, stimBorrow);       %
-    block=block+blockSum+1;
+if isfield(TrialRecord,'CurrentCondition')
+    condition = TrialRecord.CurrentCondition;
+else
+    condition = 1;
+end
+
+
+if isempty(TrialRecord.TrialErrors)
+
+    condition = 1;
+
+elseif ~isempty(TrialRecord.TrialErrors) && 0==TrialRecord.TrialErrors(end)
+
+    stimList = setdiff(stimList, stimPrev);
+    condition = mod(condition+stim_per_trial-1, stimLength)+1;
+
+end
+
+
+if isempty(stimList)
+
+    stimList = setdiff(1:stimLength, stimBorrow);
+    block = block + blockSum + 1;
+
     stimBorrow = [];
     blockSum = 0;
+
 end
 
-if length(stimList)>=stim_per_trial                                         % If more than 2 stimuli left in the current block
-    stimCurrent = datasample(stimList, stim_per_trial, 'Replace',false);    % randomly sample 3 stimuli from the list
+
+if length(stimList)>=stim_per_trial
+
+    stimCurrent = datasample(stimList, stim_per_trial, 'Replace',false);
     stimPrev = stimCurrent;
+
 elseif length(stimList)+stimLength>stim_per_trial
+
     stimPrev = stimList;
-    stimBorrow = datasample(1:stimLength, stim_per_trial-length(stimList), 'Replace', false);
+    stimBorrow = datasample(1:stimLength, stim_per_trial-length(stimList),'Replace',false);
+
     stimCurrent = [stimList stimBorrow];
     stimCurrent = stimCurrent(randperm(stim_per_trial));
+
 else
+
     stimPrev = stimList;
-    blockSum = floor((stim_per_trial - length(stimList))/stimLength);
-    stimBorrow = datasample(1:stimLength, stim_per_trial-length(stimList)-blockSum*stimLength, 'Replace', false);
+
+    blockSum = floor((stim_per_trial-length(stimList))/stimLength);
+
+    stimBorrow = datasample(1:stimLength, stim_per_trial-length(stimList)-blockSum*stimLength,'Replace',false);
+
     stimCurrent = [stimList repmat(1:stimLength,1,blockSum) stimBorrow];
     stimCurrent = stimCurrent(randperm(stim_per_trial));
+
 end
 
-Info = stimTable(stimCurrent, :);
+
+Info = stimTable(stimCurrent,:);
+
 for j = string(Info.Properties.VariableNames)
+
     for i = 1:stim_per_trial
-        Info_struct.(strcat(j, string(i))) = Info.(j)(i);
+        Info_struct.(strcat(j,string(i))) = Info.(j)(i);
     end
+
 end
+
+
 TrialRecord.setCurrentConditionInfo(Info_struct);
 
-% Set the stimuli
+
 stim = cell(1,stim_per_trial);
+
 for i=1:stim_per_trial
     stim{i} = 'gen(make_grating.m)';
 end
 
-C = cell(1,stim_per_trial);
-for i=1:stim_per_trial
-    C{i} = stim{i};
-end
+C = stim;
 
-TrialRecord.User.Stimuli = stimCurrent;                     % save the stimuli for the next trial in user variable
+TrialRecord.User.Stimuli = stimCurrent;
 TrialRecord.User.stim_idx = 1;
 
-% Set the block number and the condition number of the next trial
-if block == num_blocks + 1
-    TrialRecord.NextBlock = -1;     % Exit if the next block number reaches the maximum number of blocks
-else
-    TrialRecord.NextBlock = block;
-end
+
+TrialRecord.NextBlock = block;
 TrialRecord.NextCondition = condition;
