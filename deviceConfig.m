@@ -1,0 +1,1 @@
+DeviceFlag = 2;         % 1 = Microstim, 2 = tACS
