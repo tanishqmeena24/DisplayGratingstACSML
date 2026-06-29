@@ -1,6 +1,7 @@
 function [C,timingfile,userdefined_trialholder] = displayGratingsUserloop(MLConfig,TrialRecord)
 % Adapted from Pai's grating completion protocol
 % default return value
+
 C = [];
 % timingfile = 'displayGratingsTiming.m';
 timingfile = 'displayGratingsTimingAdapter.m';      % Timing file that uses the Cerestim Adapter
@@ -9,6 +10,7 @@ userdefined_trialholder = '';
 % Number of total blocks, in case the task is to be quit after an exact
 % number of blocks
 num_blocks = 100;     % Should always be an even number
+
 if mod(num_blocks,2) == 1
     error("num_blocks should be an even number")
 end
@@ -18,97 +20,186 @@ persistent stimList                 % List of stimuli left to display in a block
 persistent stimPrev                 % List of stimuli of the current block displayed in the prev trial
 persistent stimBorrow               % List of stimuli of the next block displayed in the prev trial
 
-% Createa table of all stimulus combinations and return timing file if it the very first call
+% Create a table of all stimulus combinations and return timing file if it's the very first call
 persistent stimTable
 persistent stimLength
 persistent blockSum
 
-if isempty(stimTable)    
+persistent lsl_init             % Initializes LSL Library for tACS
+persistent tacs_loaded          % To record the loading of tACS parameters
+
+deviceConfig                    % Contains the flag for the stimulation device
+TrialRecord.User.DeviceFlag = DeviceFlag;
+
+if isempty(stimTable)
 
     % Prerequisite variables (HARDCODED):
     % Grating parameters
-    params.RF = ["IN"]; % Receptive Field (RF) conditions, IN/OUT
+    params.RF = "IN"; % Receptive Field (RF) conditions, IN/OUT
     params.azi = 0; % Azimuths (deg), V1_dona = -1.75, V4_dona = -1.35
     params.ele = 0; % Elevations (deg), V1_dona = -2.5, V4_dona = -0.6
     params.radii = 1000; % Aperture radii (deg)
     params.sf = 0.5*(2.^(0:3)); % Spatial Frequencies (SFs) (cpd)
     params.ori = (0:45:135); % Orientations (deg)
     params.con = 25*(2.^(1)); % Contrasts (%)
-    
+
+    params.amp = [1, 0.5];
+
+
+    if DeviceFlag == 1                 % For Microstim
+        
     % Microstimulation parameters
-    params.amp = 16;   % Current amplitude (uA)
-    params.pulses = 7;  % Number of biphasic pulses
-    params.frequency = [0,20,30,40,50,60,70,80];  % Frequency of biphasic pulses
-    params.duration = 300; % ms; When duration > 0, pulses is determined by frequency
+        params.amp = 16;   % Current amplitude (μA)
+        params.pulses = 7;  % Number of biphasic pulses
+        params.frequency = [0,20,30,40,50,60,70,80];  % Frequency of biphasic pulses
+        params.duration = 300; % ms; When duration > 0, pulses is determined by frequency
+    
+    elseif DeviceFlag == 2             % For tACS
+        
+        if isempty(lsl_init)
+            Start_up();                     % The LSL initialization script
+            TrialRecord.User.outlet = outlet;
+            lsl_init = true;
+    
+            disp('------------------------------------------')
+            disp('Connect GUI to stimulation device')
+            disp('------------------------------------------')
+    
+            pause(2);
+        end
+
+        % TrialRecord.User.currentStimulus = 1; % Commenting for testing
 
 
+        if isempty(tacs_loaded)
+
+        % Load tACS parameters
+            pIntensity = struct("Action",7,"Intensity",0.3); % From -3 mA to +3 mA
+            JSONIntensity = jsonencode(pIntensity);
+            ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS or Amplitude Modulation
+            JSONtACS = jsonencode(ptACS);
+            pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
+            JSONDuration = jsonencode(pDuration);
+            pDelay = struct("Action",7,"Delay",0); % From 0 msec to 600 msec
+            JSONDelay = jsonencode(pDelay);
+            pRampUp = struct("Action",7,"RampUp",0); % From 0 sec to 127 sec
+            JSONRampUp = jsonencode(pRampUp);
+            pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
+            JSONaddChannel2 = jsonencode(pChannel2);
+            pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',10); %250); % From 0.1 Hz to 5,000 Hz
+            JSONFrequency2 = jsonencode(pFrequency2);
+            pLoad = struct("Action",3);
+            JSONLoad = jsonencode(pLoad);
+            pstartStimulation = struct("Action",4);
+            JSONstartStimulation = jsonencode(pstartStimulation);
+            pstopStimulation = struct("Action",5);
+            JSONstopStimulation = jsonencode(pstopStimulation);
+
+
+            % TrialRecord.User.JSONIntensity = JSONIntensity;
+            % TrialRecord.User.JSONtACS = JSONtACS;
+            % TrialRecord.User.JSONDuration = JSONDuration;
+            % TrialRecord.User.JSONDelay = JSONDelay;
+            % TrialRecord.User.JSONRampUp = JSONRampUp;
+            % TrialRecord.User.JSONaddChannel2 = JSONaddChannel2;
+            % --- Add multiple channels here and after in the format in the line
+            % above ---
+            % TrialRecord.User.JSONLoad = JSONLoad;
+            % TrialRecord.User.JSONstartStimulation = JSONstartStimulation;
+            % TrialRecord.User.JSONstopStimulation = JSONstopStimulation;
+            TrialRecord.User.out = outlet;
+
+        % Send configuration commands to the tACS device once
+            outlet.push_sample({JSONIntensity}); pause(0.5)
+            outlet.push_sample({JSONtACS}); pause(0.5)
+            outlet.push_sample({JSONDuration}); pause(0.5)
+            outlet.push_sample({JSONDelay}); pause(0.5)
+            outlet.push_sample({JSONRampUp}); pause(0.5)
+            outlet.push_sample({JSONaddChannel2}); pause(0.5)
+            % outlet.push_sample({JSONaddChannel14}); pause(0.5)
+            outlet.push_sample({JSONFrequency2}); pause(0.5)
+            % --- Frequency of each added channel needs to be specified here --- %
+            % outlet.push_sample({JSONFrequency14}); pause(0.5)
+            % % outlet.push_sample({JSONLoad}); pause(0.5)
+
+            tacs_loaded = true;
+
+        end
+    end
+
+    if DeviceFlag == 1             % For Microstim
+        % Define the channel to be stimulated
+        % Ch 12 -> elec1-27
+        % Ch 95 -> elec1-1
+        TrialRecord.User.MicrostimChannel = 95;
+
+        % Create stimulator object
+        stimulator = cerestim96();
+
+        % Scan for devices
+        DeviceList = stimulator.scanForDevices();    
+
+        if ~isempty(DeviceList)
+            % Select a device to connect to block
+            stimulator.selectDevice(0);
+
+            % Connect to the stimulator
+            stimulator.connect; 
+
+            TrialRecord.User.Stimulator = stimulator;
+        else
+            TrialRecord.User.Stimulator = [];
+            disp("No Stimulator Devices conected");
+
+        end
+        return
+
+    end
+    
     % Creating the stimulus table:
     stimTable = create_stimtable(params=params);
     stimLength = size(stimTable, 1);
     TrialRecord.User.StimTable = stimTable;
-    
-    % Define the channel to be stimulated
-    % Ch 12 -> elec1-27
-    % Ch 95 -> elec1-1
-    TrialRecord.User.MicrostimChannel = 95;
 
-    %%
-    % Create stimulator object
-    stimulator = cerestim96();
-    
-    %%
-    
-    % Scan for devices
-    DeviceList = stimulator.scanForDevices();    
-
-    if ~isempty(DeviceList)
-    
-        % Select a device to connect to
-        stimulator.selectDevice(0);
-        
-        % Connect to the stimulator
-        stimulator.connect; 
-                
-        TrialRecord.User.Stimulator = stimulator;
-    else
-        TrialRecord.User.Stimulator = [];
-        disp("No Stimulator Devices conected");
-    end
+    blockSum = 0;
+    stimList = [];
+    stimBorrow = [];
+    stimPrev = [];
     return
+
 end
 
 stim_per_trial = TrialRecord.Editable.stim_per_trial;
-% get current block and current condition
 block = TrialRecord.CurrentBlock;
 condition = TrialRecord.CurrentCondition;
 
 if isempty(TrialRecord.TrialErrors)                                         % If its the first trial
     condition = 1;                                                          % set the condition # to 1
-elseif ~isempty(TrialRecord.TrialErrors) && 0==TrialRecord.TrialErrors(end) % If the last trial is a success
+elseif ~isempty(TrialRecord.TrialErrors) && 0 == TrialRecord.TrialErrors(end) % If the last trial is a success
     stimList = setdiff(stimList, stimPrev);                                 % remove previous trial stimuli from the list of stimuli
-    condition = mod(condition+stim_per_trial-1, stimLength)+1;                 % increment the condition # by stim_per_trial
+    condition = mod(condition + stim_per_trial - 1, stimLength) + 1;        % increment the condition # by stim_per_trial
 end
 
 % Initialize the conditions for a new block
 if isempty(stimList)                                            % If there are no stimuli left in the block
-    stimList = setdiff(1:stimLength, stimBorrow);       %
-    block=block+blockSum+1;
+    stimList = setdiff(1:stimLength, stimBorrow);
+    block = block + blockSum + 1;
     stimBorrow = [];
     blockSum = 0;
 end
 
-if length(stimList)>=stim_per_trial                                         % If more than 2 stimuli left in the current block
+if length(stimList) >= stim_per_trial                                         % If more than 2 stimuli left in the current block
     stimCurrent = datasample(stimList, stim_per_trial, 'Replace',false);    % randomly sample 3 stimuli from the list
     stimPrev = stimCurrent;
-elseif length(stimList)+stimLength>stim_per_trial
+elseif length(stimList) + stimLength > stim_per_trial
     stimPrev = stimList;
     stimBorrow = datasample(1:stimLength, stim_per_trial-length(stimList), 'Replace', false);
     stimCurrent = [stimList stimBorrow];
     stimCurrent = stimCurrent(randperm(stim_per_trial));
 else
     stimPrev = stimList;
-    blockSum = floor((stim_per_trial - length(stimList))/stimLength);
-    stimBorrow = datasample(1:stimLength, stim_per_trial-length(stimList)-blockSum*stimLength, 'Replace', false);
+    blockSum = floor((stim_per_trial - length(stimList)) / stimLength);
+    stimBorrow = datasample(1:stimLength, stim_per_trial - length(stimList) - blockSum * stimLength, 'Replace', false);
     stimCurrent = [stimList repmat(1:stimLength,1,blockSum) stimBorrow];
     stimCurrent = stimCurrent(randperm(stim_per_trial));
 end
@@ -119,6 +210,7 @@ for j = string(Info.Properties.VariableNames)
         Info_struct.(strcat(j, string(i))) = Info.(j)(i);
     end
 end
+
 TrialRecord.setCurrentConditionInfo(Info_struct);
 
 % Set the stimuli
@@ -127,18 +219,34 @@ for i=1:stim_per_trial
     stim{i} = 'gen(make_grating.m)';
 end
 
-C = cell(1,stim_per_trial);
-for i=1:stim_per_trial
-    C{i} = stim{i};
+if DeviceFlag == 1                 % For Microstim
+    C = cell(1,stim_per_trial);
+    for i=1:stim_per_trial
+        C{i} = stim{i};
+    end
+elseif DeviceFlag == 2                 % For tACS
+    C = stim;
 end
 
-TrialRecord.User.Stimuli = stimCurrent;                     % save the stimuli for the next trial in user variable
+TrialRecord.User.Stimuli = stimCurrent;             % save the stimuli for the next trial in user variable
 TrialRecord.User.stim_idx = 1;
 
-% Set the block number and the condition number of the next trial
 if block == num_blocks + 1
-    TrialRecord.NextBlock = -1;     % Exit if the next block number reaches the maximum number of blocks
+        TrialRecord.NextBlock = -1;     % Exit if the next block number reaches the maximum number of blocks
 else
     TrialRecord.NextBlock = block;
 end
-TrialRecord.NextCondition = condition;
+
+
+% Set the block number and the condition number of the next trial
+% if DeviceFlag == 1                 % For Microstim
+%     if block == num_blocks + 1
+%         TrialRecord.NextBlock = -1;     % Exit if the next block number reaches the maximum number of blocks
+%     else
+%         TrialRecord.NextBlock = block;
+%     end
+%     TrialRecord.NextCondition = condition;
+% elseif DeviceFlag == 2                 % For tACS
+%     TrialRecord.NextBlock = block;
+%     TrialRecord.NextCondition = condition;
+% end

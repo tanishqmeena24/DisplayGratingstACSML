@@ -1,5 +1,5 @@
 classdef Cerestim < mladapter  % Cerestim Adapter Class
-     
+
     properties
         % User variables (both readable and writable)
         Stimulator = []     % Stimmex cerestim96 stimulator object
@@ -12,7 +12,7 @@ classdef Cerestim < mladapter  % Cerestim Adapter Class
     end
     properties (SetAccess = protected)
         % Output variables (only readable)
-        
+
     end
     properties (Access = protected)
         % Internal variables
@@ -33,13 +33,13 @@ classdef Cerestim < mladapter  % Cerestim Adapter Class
             obj.Duration = varargin{7};
 
             obj.setPatterns();
-            
+
         end
         function delete(obj) 
             % Things to do when this adapter is destroyed by MATLAB
             obj.disableStimulator();
         end
-        
+
         function init(obj,p)
             init@mladapter(obj,p);  % Call to base class. It is necessary to complete the adapter chain.                                   
         end
@@ -95,7 +95,7 @@ classdef Cerestim < mladapter  % Cerestim Adapter Class
                     obj.printToCommand("Microstimulation(I=" + amp...
                             + ", n=" + pulses + ...
                             ", f=" + frequency + ")");
-                    
+
                     % Do not set stim patterns for the following values
                     if amp == 0 || pulses == 0  || frequency < 16
                         obj.doStim = cat(1,obj.doStim,false);
@@ -103,12 +103,12 @@ classdef Cerestim < mladapter  % Cerestim Adapter Class
                     else
                         obj.doStim = cat(1,obj.doStim,true);
                     end
-                    
+
                     % When duration > 0, pulses is determined by frequency
                     if duration > 0
                         pulses = 1 + (duration * frequency) / 1000;
                     end
-                                        
+
                     % Program our waveforms (stim patterns)
                     obj.Stimulator.setStimPattern('waveform',i,...% We can define multiple waveforms and distinguish them by ID
                         'polarity',0,...% 0=CF, 1=AF
@@ -124,7 +124,7 @@ classdef Cerestim < mladapter  % Cerestim Adapter Class
                 obj.printToCommand("Cannot do microstimulation as no device connected");
             end
         end
-        
+
         function disableStimulator(obj)
             obj.Stimulator = [];
         end
@@ -132,12 +132,11 @@ classdef Cerestim < mladapter  % Cerestim Adapter Class
         function printToCommand(obj, message)            
             if obj.verbose
                 if strcmp(message, 'clc')
-                    clc; %#ok<UNRCH>
+                    clc;
                 else
                     disp(message)
                 end
             end
         end
-
     end
 end

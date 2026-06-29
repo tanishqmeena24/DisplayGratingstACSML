@@ -2,15 +2,16 @@
 hotkey('x', 'escape_screen(); assignin(''caller'',''continue_'',false);');  % Stop the task immediately if "x" key is pressed
 set_bgcolor([0.5 0.5 0.5]);                                                 % Sets subject screen background color to Gray
 bhv_variable('Stimuli', TrialRecord.User.Stimuli);                          % Save the current trial stimuli in data.UserVars variable
-bhv_variable('MicrostimChannel', TrialRecord.User.MicrostimChannel);
+if TrialRecord.User.DeviceFlag == 1
+    bhv_variable('MicrostimChannel', TrialRecord.User.MicrostimChannel); end
 
 % Initializing task variables
 if exist('eye_','var'), tracker = eye_;     % detect an available tracker
 else, error('This task requires eye input. Please set it up or turn on the simulation mode.');
 end
 
-% Mapping to the TaskObjects defined in the userloop
-stim_per_trial = 3;
+
+stim_per_trial = 1;
 stim = 1:stim_per_trial;
 
 % time intervals (in ms):
@@ -20,6 +21,23 @@ stimulus_duration = 800;
 isi_duration = 700;
 pulse_duration = 50;
 
+% % Mapping to the TaskObjects defined in the userloop
+% if TrialRecord.User.DeviceFlag == 1   % for microstim
+% 
+% 
+% elseif TrialRecord.User.DeviceFlag == 2   % for tACS
+%     stim_per_trial = 1;
+%     stim = 1:stim_per_trial;
+% 
+%     % time intervals (in ms):
+%     wait_for_fix = 2000; 
+%     hold_fix = 1250;
+%     stimulus_duration = 1250;
+%     isi_duration = 2000;
+%     pulse_duration = 50;
+% 
+% end
+
 % fixation point parameters:
 fix_size = 0.2;             % circle diameter (in degrees)
 fix_color = [1 1 1];        % [R G B] values between 0 and 1
@@ -28,12 +46,16 @@ hold_window = fix_window ;
 
 % microstim controls
 microstim_enable = false;   % if false (or unchecked on the control screen), the task acts like a grating protocol
+                            % same button used for tACS enable as well
+
+tacs_enable = true;
 
 % Add variables on the Control screen to make on-the-fly changes
 editable('pulse_duration','fix_window','fix_size');
 editable('-color', 'fix_color');
 editable('stim_per_trial','wait_for_fix','hold_fix','stimulus_duration','isi_duration');
 editable('microstim_enable');
+editable('tacs_enable');
 
 % creating useful adapters
 % Graphic adapter for fixation point
@@ -42,7 +64,9 @@ fixation_point.EdgeColor = fix_color;
 fixation_point.FaceColor = fix_color;
 fixation_point.Size = fix_size;
 fixation_point.Position = [0 0];
-fixation_point.Zorder = 1;
+if TrialRecord.User.DeviceFlag == 1
+    fixation_point.Zorder = 1;
+end
 
 % Adapter to play audio at the start of the trial
 sndTrialStart = AudioSound(null_);
@@ -90,21 +114,39 @@ wth3.HoldTime = stimulus_duration;
 
 stimTable = TrialRecord.User.StimTable;
 stimCurrent = TrialRecord.User.Stimuli;
-stimulator = Cerestim(null_,...
-    TrialRecord.User.Stimulator, ...
-    TrialRecord.User.MicrostimChannel,...
-    stimTable{stimCurrent,"amp"},...
-    stimTable{stimCurrent,"frequency"},...
-    stimTable{stimCurrent,"pulses"},...    
-    stimTable{stimCurrent,"duration"});
-if ~microstim_enable, stimulator.disableStimulator(); end
 
-con3 = Concurrent(wth3);
-con3.add(stimulator);
+if TrialRecord.User.DeviceFlag == 1   % for microstim
 
-sceneStim = cell(1,stim_per_trial);
-for i=1:stim_per_trial    
-    sceneStim{i} = create_scene(con3, stim(i)); % present stimulus i
+    stimulator = Cerestim(null_,...
+        TrialRecord.User.Stimulator, ...
+        TrialRecord.User.MicrostimChannel,...
+        stimTable{stimCurrent,"amp"},...
+        stimTable{stimCurrent,"frequency"},...
+        stimTable{stimCurrent,"pulses"},...    
+        stimTable{stimCurrent,"duration"});
+    if ~microstim_enable, stimulator.disableStimulator(); end
+
+    con3 = Concurrent(wth3);
+    con3.add(stimulator);
+
+elseif TrialRecord.User.DeviceFlag == 2   % for tACS
+    stimAdapter = tACSAdapter(wth3,...  
+    1,...% TrialRecord.User.JSONstartStimulation,...
+    1,...% TrialRecord.User.JSONstopStimulation,...
+    1,...% TrialRecord.User.JSONLoad,...
+    TrialRecord.User.outlet,...
+    1,...% TrialRecord.User.currentStimulus,...
+    stimTable{stimCurrent,"amp"});
+    
+end
+disp(stim_per_trial)
+sceneStim = cell(1,stim_per_trial); % CHECK THIS AFTER LUNCH
+for i=1:stim_per_trial 
+    if TrialRecord.User.DeviceFlag == 1
+        sceneStim{i} = create_scene(con3, stim(i)); % present stimulus i
+    elseif TrialRecord.User.DeviceFlag == 2
+        sceneStim{i} = create_scene(stimAdapter, stim(i)); % present stimulus i
+    end    
 end
 
 % sceneISI: hold fixation until next stimulus
@@ -130,7 +172,7 @@ while true
     for i=1:stim_per_trial-1        
         run_scene(sceneStim{i},20);                     % Run the scene for presenting i'th stimulus (eventmarker 20)
         if ~wth3.Success; error_type = 3; flag=1; break; end    % The failure of WithThenHold indicates that the subject didn't maintain fixation on the stimulus.
-        
+
         if isi_duration ~= 0
             run_scene(sceneISI,10);
             if ~wth4.Success; error_type = 3; flag=1; break; end
@@ -139,11 +181,32 @@ while true
         end
     end
     if flag==1; break; end
-    
-    run_scene(sceneStim{stim_per_trial},20);                       % Run the scene for presenting last stimulus (eventmarker 20)
+
+    run_scene(sceneStim{stim_per_trial},20);        % Run the scene for presenting last stimulus (eventmarker 20)
     if ~wth3.Success; error_type = 3; break; end    % The failure of WithThenHold indicates that the subject didn't maintain fixation on the stimulus.
+
+    % if TrialRecord.User.DeviceFlag == 2   % for tACS
+    %     for i = 1:stim_per_trial
+    % 
+    %         run_scene(sceneStim{i},7);          %3 %31 = grating ON
+    %         if ~wth3.Success
+    %             error_type = 3;
+    %             flag = 1;
+    %             break;
+    %         end
+    % 
+    %         if i < stim_per_trial
+    %             run_scene(sceneISI, 3);    % Grating OFF
+    % 
+    %             if ~wth4.Success; error_type = 3; flag=1; break; end
+    %         end
+    % 
+    %     end
+    %     if flag==1; break; end
+    % 
+    % end
     
-    idle(0);                                        % Clear screens
+    idle(0);            % Clear screens
     goodmonkey(pulse_duration, 'juiceline',1, 'numreward',1, 'pausetime',0, 'eventmarker',50);   % Successful trial, give reward
     break
 end
