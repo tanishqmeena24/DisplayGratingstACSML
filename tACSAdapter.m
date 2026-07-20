@@ -7,7 +7,7 @@ classdef tACSAdapter < mladapter
         outlet
         currentStimulus
         Intensity
-        % Frequency
+        Frequency
     end
 
     properties (Access = protected)
@@ -28,7 +28,10 @@ classdef tACSAdapter < mladapter
 
             obj.Intensity = varargin{7};
             disp("Creating Adapter...")
+            obj.Frequency = varargin{8};
             obj.setWaveform();
+
+          
         end
 
         function init(obj, p)  %init(obj,~)
@@ -82,17 +85,17 @@ classdef tACSAdapter < mladapter
         end
 
         function setWaveform(obj)
-            disp(obj.Intensity)
+            % disp(obj.Intensity)
             pIntensity = struct("Action",7,"Intensity",obj.Intensity); % From -3 mA to +3 mA
             JSONIntensity = jsonencode(pIntensity);
-            % ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS or Amplitude Modulation
-            % JSONtACS = jsonencode(ptACS);
-            % pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
-            % JSONDuration = jsonencode(pDuration);
-            % pDelay = struct("Action",7,"Delay",0); % From 0 msec to 600 msec
-            % JSONDelay = jsonencode(pDelay);
-            % pRampUp = struct("Action",7,"RampUp",0); % From 0 sec to 127 sec
-            % JSONRampUp = jsonencode(pRampUp);
+            ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS or Amplitude Modulation
+            JSONtACS = jsonencode(ptACS);
+            pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
+            JSONDuration = jsonencode(pDuration);
+            pDelay = struct("Action",7,"Delay",0); % From 0 msec to 600 msec
+            JSONDelay = jsonencode(pDelay);
+            pRampUp = struct("Action",7,"RampUp",0); % From 0 sec to 127 sec
+            JSONRampUp = jsonencode(pRampUp);
             pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
             JSONaddChannel2 = jsonencode(pChannel2);
             pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',10); %250); % From 0.1 Hz to 5,000 Hz
@@ -104,29 +107,15 @@ classdef tACSAdapter < mladapter
             pstopStimulation = struct("Action",5);
             obj.StopJSON = jsonencode(pstopStimulation);
 
-
-            % TrialRecord.User.JSONIntensity = JSONIntensity;
-            % TrialRecord.User.JSONtACS = JSONtACS;
-            % TrialRecord.User.JSONDuration = JSONDuration;
-            % TrialRecord.User.JSONDelay = JSONDelay;
-            % TrialRecord.User.JSONRampUp = JSONRampUp;
-            % TrialRecord.User.JSONaddChannel2 = JSONaddChannel2;
-            % % --- Add multiple channels here and after in the format in the line
-            % % above ---
-            % TrialRecord.User.JSONLoad = JSONLoad;
-            % TrialRecord.User.JSONstartStimulation = JSONstartStimulation;
-            % TrialRecord.User.JSONstopStimulation = JSONstopStimulation;
-            % TrialRecord.User.out = outlet;
-
         % Send configuration commands to the tACS device once
-            obj.outlet.push_sample({JSONIntensity}); pause(0.5)
-            % obj.outlet.push_sample({JSONtACS}); pause(0.5)
-            % obj.outlet.push_sample({JSONDuration}); pause(0.5)
-            % obj.outlet.push_sample({JSONDelay}); pause(0.5)
-            % obj.outlet.push_sample({JSONRampUp}); pause(0.5)
-            obj.outlet.push_sample({JSONaddChannel2}); pause(0.5)
+            obj.outlet.push_sample({JSONIntensity}); pause(0.1)
+            obj.outlet.push_sample({JSONtACS}); pause(0.1)
+            obj.outlet.push_sample({JSONDuration}); pause(0.1)
+            obj.outlet.push_sample({JSONDelay}); pause(0.1)
+            obj.outlet.push_sample({JSONRampUp}); pause(0.1)
+            obj.outlet.push_sample({JSONaddChannel2}); pause(0.1)
             % % outlet.push_sample({JSONaddChannel14}); pause(0.5)
-            obj.outlet.push_sample({JSONFrequency2}); pause(0.5)
+            obj.outlet.push_sample({JSONFrequency2}); pause(0.1)
             % --- Frequency of each added channel needs to be specified here --- %
             % outlet.push_sample({JSONFrequency14}); pause(0.5)
             obj.outlet.push_sample({obj.JSONLoad}); pause(2)

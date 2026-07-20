@@ -10,33 +10,15 @@ if exist('eye_','var'), tracker = eye_;     % detect an available tracker
 else, error('This task requires eye input. Please set it up or turn on the simulation mode.');
 end
 
-
 stim_per_trial = 1;
 stim = 1:stim_per_trial;
 
 % time intervals (in ms):
 wait_for_fix = 1000;
 hold_fix = 1000;
-stimulus_duration = 800;
+stimulus_duration = 4250;
 isi_duration = 700;
 pulse_duration = 50;
-
-% % Mapping to the TaskObjects defined in the userloop
-% if TrialRecord.User.DeviceFlag == 1   % for microstim
-% 
-% 
-% elseif TrialRecord.User.DeviceFlag == 2   % for tACS
-%     stim_per_trial = 1;
-%     stim = 1:stim_per_trial;
-% 
-%     % time intervals (in ms):
-%     wait_for_fix = 2000; 
-%     hold_fix = 1250;
-%     stimulus_duration = 1250;
-%     isi_duration = 2000;
-%     pulse_duration = 50;
-% 
-% end
 
 % fixation point parameters:
 fix_size = 0.2;             % circle diameter (in degrees)
@@ -64,9 +46,7 @@ fixation_point.EdgeColor = fix_color;
 fixation_point.FaceColor = fix_color;
 fixation_point.Size = fix_size;
 fixation_point.Position = [0 0];
-if TrialRecord.User.DeviceFlag == 1
-    fixation_point.Zorder = 1;
-end
+fixation_point.Zorder = 1;
 
 % Adapter to play audio at the start of the trial
 sndTrialStart = AudioSound(null_);
@@ -136,11 +116,13 @@ elseif TrialRecord.User.DeviceFlag == 2   % for tACS
     1,...% TrialRecord.User.JSONLoad,...
     TrialRecord.User.outlet,...
     1,...% TrialRecord.User.currentStimulus,...
-    stimTable{stimCurrent,"amp"});
+    stimTable{stimCurrent,"amp"}, ...
+    stimTable{stimCurrent,"frequency"});
     
 end
+
 disp(stim_per_trial)
-sceneStim = cell(1,stim_per_trial); % CHECK THIS AFTER LUNCH
+sceneStim = cell(1,stim_per_trial);
 for i=1:stim_per_trial 
     if TrialRecord.User.DeviceFlag == 1
         sceneStim{i} = create_scene(con3, stim(i)); % present stimulus i
@@ -184,27 +166,6 @@ while true
 
     run_scene(sceneStim{stim_per_trial},20);        % Run the scene for presenting last stimulus (eventmarker 20)
     if ~wth3.Success; error_type = 3; break; end    % The failure of WithThenHold indicates that the subject didn't maintain fixation on the stimulus.
-
-    % if TrialRecord.User.DeviceFlag == 2   % for tACS
-    %     for i = 1:stim_per_trial
-    % 
-    %         run_scene(sceneStim{i},7);          %3 %31 = grating ON
-    %         if ~wth3.Success
-    %             error_type = 3;
-    %             flag = 1;
-    %             break;
-    %         end
-    % 
-    %         if i < stim_per_trial
-    %             run_scene(sceneISI, 3);    % Grating OFF
-    % 
-    %             if ~wth4.Success; error_type = 3; flag=1; break; end
-    %         end
-    % 
-    %     end
-    %     if flag==1; break; end
-    % 
-    % end
     
     idle(0);            % Clear screens
     goodmonkey(pulse_duration, 'juiceline',1, 'numreward',1, 'pausetime',0, 'eventmarker',50);   % Successful trial, give reward

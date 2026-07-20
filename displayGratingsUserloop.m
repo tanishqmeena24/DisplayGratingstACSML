@@ -41,9 +41,13 @@ if isempty(stimTable)
     params.radii = 1000; % Aperture radii (deg)
     params.sf = 0.5*(2.^(0:3)); % Spatial Frequencies (SFs) (cpd)
     params.ori = (0:45:135); % Orientations (deg)
-    params.con = 25*(2.^(1)); % Contrasts (%)
+    params.con = [25, 50, 100]; % Contrasts (%)
 
-    params.amp = [1, 0.5];
+    % params.amp = [0, 3]; % For tDCS
+    params.amp = [0, 1.5]; % For tACS Dona
+    % params.amp = [0, 2.5]; % For tACS Jojo
+
+    params.frequency = 20;
 
 
     if DeviceFlag == 1                 % For Microstim
@@ -74,7 +78,7 @@ if isempty(stimTable)
         if isempty(tacs_loaded)
 
         % Load tACS parameters
-            pIntensity = struct("Action",7,"Intensity",0.3); % From -3 mA to +3 mA
+            pIntensity = struct("Action",7,"Intensity",1.5); % From -3 mA to +3 mA
             JSONIntensity = jsonencode(pIntensity);
             ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS or Amplitude Modulation
             JSONtACS = jsonencode(ptACS);
@@ -86,7 +90,7 @@ if isempty(stimTable)
             JSONRampUp = jsonencode(pRampUp);
             pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
             JSONaddChannel2 = jsonencode(pChannel2);
-            pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',10); %250); % From 0.1 Hz to 5,000 Hz
+            pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',20); %250); % From 0.1 Hz to 5,000 Hz
             JSONFrequency2 = jsonencode(pFrequency2);
             pLoad = struct("Action",3);
             JSONLoad = jsonencode(pLoad);
@@ -95,36 +99,24 @@ if isempty(stimTable)
             pstopStimulation = struct("Action",5);
             JSONstopStimulation = jsonencode(pstopStimulation);
 
-
-            % TrialRecord.User.JSONIntensity = JSONIntensity;
-            % TrialRecord.User.JSONtACS = JSONtACS;
-            % TrialRecord.User.JSONDuration = JSONDuration;
-            % TrialRecord.User.JSONDelay = JSONDelay;
-            % TrialRecord.User.JSONRampUp = JSONRampUp;
-            % TrialRecord.User.JSONaddChannel2 = JSONaddChannel2;
-            % --- Add multiple channels here and after in the format in the line
-            % above ---
-            % TrialRecord.User.JSONLoad = JSONLoad;
-            % TrialRecord.User.JSONstartStimulation = JSONstartStimulation;
-            % TrialRecord.User.JSONstopStimulation = JSONstopStimulation;
             TrialRecord.User.out = outlet;
 
         % Send configuration commands to the tACS device once
-            outlet.push_sample({JSONIntensity}); pause(0.5)
-            outlet.push_sample({JSONtACS}); pause(0.5)
-            outlet.push_sample({JSONDuration}); pause(0.5)
-            outlet.push_sample({JSONDelay}); pause(0.5)
-            outlet.push_sample({JSONRampUp}); pause(0.5)
-            outlet.push_sample({JSONaddChannel2}); pause(0.5)
+            outlet.push_sample({JSONIntensity}); pause(0.1)
+            outlet.push_sample({JSONtACS}); pause(0.1)
+            outlet.push_sample({JSONDuration}); pause(0.1)
+            outlet.push_sample({JSONDelay}); pause(0.1)
+            outlet.push_sample({JSONRampUp}); pause(0.1)
+            outlet.push_sample({JSONaddChannel2}); pause(0.1)
             % outlet.push_sample({JSONaddChannel14}); pause(0.5)
-            outlet.push_sample({JSONFrequency2}); pause(0.5)
+            outlet.push_sample({JSONFrequency2}); pause(0.1)
             % --- Frequency of each added channel needs to be specified here --- %
             % outlet.push_sample({JSONFrequency14}); pause(0.5)
             % % outlet.push_sample({JSONLoad}); pause(0.5)
 
             tacs_loaded = true;
-
         end
+        TrialRecord.User.Stimulator = tacs_loaded;
     end
 
     if DeviceFlag == 1             % For Microstim
@@ -236,17 +228,3 @@ if block == num_blocks + 1
 else
     TrialRecord.NextBlock = block;
 end
-
-
-% Set the block number and the condition number of the next trial
-% if DeviceFlag == 1                 % For Microstim
-%     if block == num_blocks + 1
-%         TrialRecord.NextBlock = -1;     % Exit if the next block number reaches the maximum number of blocks
-%     else
-%         TrialRecord.NextBlock = block;
-%     end
-%     TrialRecord.NextCondition = condition;
-% elseif DeviceFlag == 2                 % For tACS
-%     TrialRecord.NextBlock = block;
-%     TrialRecord.NextCondition = condition;
-% end
