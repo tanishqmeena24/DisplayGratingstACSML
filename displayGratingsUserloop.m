@@ -1,4 +1,4 @@
-function [C,timingfile,userdefined_trialholder] = displayGratingsUserloop(MLConfig,TrialRecord)
+function [C,timingfile,userdefined_trialholder] = displayGratingsUserloop(~,TrialRecord)
 % Adapted from Pai's grating completion protocol
 % default return value
 
@@ -47,7 +47,7 @@ if isempty(stimTable)
     params.amp = [0, 1.5]; % For tACS Dona
     % params.amp = [0, 2.5]; % For tACS Jojo
 
-    params.frequency = 20;
+    params.frequency = 20; % tACS Frequency
 
 
     if DeviceFlag == 1                 % For Microstim
@@ -80,7 +80,7 @@ if isempty(stimTable)
         % Load tACS parameters
             pIntensity = struct("Action",7,"Intensity",1.5); % From -3 mA to +3 mA
             JSONIntensity = jsonencode(pIntensity);
-            ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS or Amplitude Modulation
+            ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS
             JSONtACS = jsonencode(ptACS);
             pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
             JSONDuration = jsonencode(pDuration);
@@ -92,12 +92,12 @@ if isempty(stimTable)
             JSONaddChannel2 = jsonencode(pChannel2);
             pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',20); %250); % From 0.1 Hz to 5,000 Hz
             JSONFrequency2 = jsonencode(pFrequency2);
-            pLoad = struct("Action",3);
-            JSONLoad = jsonencode(pLoad);
-            pstartStimulation = struct("Action",4);
-            JSONstartStimulation = jsonencode(pstartStimulation);
-            pstopStimulation = struct("Action",5);
-            JSONstopStimulation = jsonencode(pstopStimulation);
+            % pLoad = struct("Action",3);
+            % JSONLoad = jsonencode(pLoad);
+            % pstartStimulation = struct("Action",4);
+            % JSONstartStimulation = jsonencode(pstartStimulation);
+            % pstopStimulation = struct("Action",5);
+            % JSONstopStimulation = jsonencode(pstopStimulation);
 
             TrialRecord.User.out = outlet;
 
@@ -165,7 +165,7 @@ stim_per_trial = TrialRecord.Editable.stim_per_trial;
 block = TrialRecord.CurrentBlock;
 condition = TrialRecord.CurrentCondition;
 
-if isempty(TrialRecord.TrialErrors)                                         % If its the first trial
+if isempty(TrialRecord.TrialErrors)                                         % If it's the first trial
     condition = 1;                                                          % set the condition # to 1
 elseif ~isempty(TrialRecord.TrialErrors) && 0 == TrialRecord.TrialErrors(end) % If the last trial is a success
     stimList = setdiff(stimList, stimPrev);                                 % remove previous trial stimuli from the list of stimuli

@@ -98,7 +98,7 @@ classdef tACSAdapter < mladapter
             JSONRampUp = jsonencode(pRampUp);
             pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
             JSONaddChannel2 = jsonencode(pChannel2);
-            pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',10); %250); % From 0.1 Hz to 5,000 Hz
+            pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',obj.Frequency); %250); % From 0.1 Hz to 5,000 Hz
             JSONFrequency2 = jsonencode(pFrequency2);
             pLoad = struct("Action",3);
             obj.JSONLoad = jsonencode(pLoad);
