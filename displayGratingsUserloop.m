@@ -41,7 +41,7 @@ if isempty(stimTable)
     params.radii = 1000; % Aperture radii (deg)
     params.sf = 0.5*(2.^(0:3)); % Spatial Frequencies (SFs) (cpd)
     params.ori = (0:45:135); % Orientations (deg)
-    params.con = [25, 50, 100]; % Contrasts (%)
+    params.con = 100; %[25, 50, 100]; % Contrasts (%)
 
     % params.amp = [0, 3]; % For tDCS
     params.amp = [0, 1.5]; % For tACS Dona
@@ -60,61 +60,66 @@ if isempty(stimTable)
     
     elseif DeviceFlag == 2             % For tACS
         
-        if isempty(lsl_init)
-            Start_up();                     % The LSL initialization script
-            TrialRecord.User.outlet = outlet;
-            lsl_init = true;
-    
-            disp('------------------------------------------')
-            disp('Connect GUI to stimulation device')
-            disp('------------------------------------------')
-    
-            pause(2);
-        end
+        % if isempty(lsl_init)
+        %     Start_up();                     % The LSL initialization script
+        %     TrialRecord.User.outlet = outlet;
+        %     lsl_init = true;
+        % 
+        %     disp('------------------------------------------')
+        %     disp('Connect GUI to stimulation device')
+        %     disp('------------------------------------------')
+        % 
+        %     pause(2);
+        % end
 
         % TrialRecord.User.currentStimulus = 1; % Commenting for testing
 
 
         if isempty(tacs_loaded)
 
+        % The LSL communication with Soterix Laptop will go here
+
         % Load tACS parameters
-            pIntensity = struct("Action",7,"Intensity",1.5); % From -3 mA to +3 mA
-            JSONIntensity = jsonencode(pIntensity);
-            ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS
-            JSONtACS = jsonencode(ptACS);
-            pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
-            JSONDuration = jsonencode(pDuration);
-            pDelay = struct("Action",7,"Delay",0); % From 0 msec to 600 msec
-            JSONDelay = jsonencode(pDelay);
-            pRampUp = struct("Action",7,"RampUp",0); % From 0 sec to 127 sec
-            JSONRampUp = jsonencode(pRampUp);
-            pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
-            JSONaddChannel2 = jsonencode(pChannel2);
-            pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',20); %250); % From 0.1 Hz to 5,000 Hz
-            JSONFrequency2 = jsonencode(pFrequency2);
-            % pLoad = struct("Action",3);
-            % JSONLoad = jsonencode(pLoad);
-            % pstartStimulation = struct("Action",4);
-            % JSONstartStimulation = jsonencode(pstartStimulation);
-            % pstopStimulation = struct("Action",5);
-            % JSONstopStimulation = jsonencode(pstopStimulation);
+        % pIntensity = struct("Action",7,"Intensity",1.5); % From -3 mA to +3 mA
+        % JSONIntensity = jsonencode(pIntensity);
+        % ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS
+        % JSONtACS = jsonencode(ptACS);
+        % pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
+        % JSONDuration = jsonencode(pDuration);
+        % pDelay = struct("Action",7,"Delay",0); % From 0 msec to 600 msec
+        % JSONDelay = jsonencode(pDelay);
+        % pRampUp = struct("Action",7,"RampUp",0); % From 0 sec to 127 sec
+        % JSONRampUp = jsonencode(pRampUp);
+        % pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
+        % JSONaddChannel2 = jsonencode(pChannel2);
+        % pWaveform = struct("ChannelNumber", 2, "Action", 1, "PathToFile", "C:\Users\sraylab\Desktop\SoterixMedical\HD-SC Constant Current Version 3.0.4\waveforms_files\full_sine.txt");
+        % % JSONWaveform = jsonencode(pWaveform)
+        % pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',20); %250); % From 0.1 Hz to 5,000 Hz
+        % JSONFrequency2 = jsonencode(pFrequency2);
+        % % pLoad = struct("Action",3);
+        % % JSONLoad = jsonencode(pLoad);
+        % % pstartStimulation = struct("Action",4);
+        % % JSONstartStimulation = jsonencode(pstartStimulation);
+        % % pstopStimulation = struct("Action",5);
+        % % JSONstopStimulation = jsonencode(pstopStimulation);
 
-            TrialRecord.User.out = outlet;
+        
+        % % Send configuration commands to the tACS device once
+        % outlet.push_sample({JSONIntensity}); pause(0.1)
+        % outlet.push_sample({JSONtACS}); pause(0.1)
+        % outlet.push_sample({JSONDuration}); pause(0.1)
+        % outlet.push_sample({JSONDelay}); pause(0.1)
+        % outlet.push_sample({JSONRampUp}); pause(0.1)
+        % outlet.push_sample({JSONaddChannel2}); pause(0.1)
+        % % outlet.push_sample({JSONaddChannel14}); pause(0.5)
+        % outlet.push_sample({JSONFrequency2}); pause(0.1)
+        % % --- Frequency of each added channel needs to be specified here --- %
+        % % outlet.push_sample({JSONFrequency14}); pause(0.5)
+        % % % outlet.push_sample({JSONLoad}); pause(0.5)
 
-        % Send configuration commands to the tACS device once
-            outlet.push_sample({JSONIntensity}); pause(0.1)
-            outlet.push_sample({JSONtACS}); pause(0.1)
-            outlet.push_sample({JSONDuration}); pause(0.1)
-            outlet.push_sample({JSONDelay}); pause(0.1)
-            outlet.push_sample({JSONRampUp}); pause(0.1)
-            outlet.push_sample({JSONaddChannel2}); pause(0.1)
-            % outlet.push_sample({JSONaddChannel14}); pause(0.5)
-            outlet.push_sample({JSONFrequency2}); pause(0.1)
-            % --- Frequency of each added channel needs to be specified here --- %
-            % outlet.push_sample({JSONFrequency14}); pause(0.5)
-            % % outlet.push_sample({JSONLoad}); pause(0.5)
 
             tacs_loaded = true;
+
         end
         TrialRecord.User.Stimulator = tacs_loaded;
     end

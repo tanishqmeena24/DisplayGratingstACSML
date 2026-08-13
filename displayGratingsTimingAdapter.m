@@ -151,24 +151,31 @@ while true
     run_scene(sceneHold,10);
     if ~wth2.Success; error_type = 3; break; end    % If the WithThenHold failed (fixation is broken), this is a "break fixation (3)" error.
 
-    for i=1:stim_per_trial-1        
-        run_scene(sceneStim{i},20);                     % Run the scene for presenting i'th stimulus (eventmarker 20)
+    for i=1:stim_per_trial-1
+
+        run_scene(sceneStim{i},11);                     % Run the scene for presenting i'th stimulus (eventmarker 20)
         if ~wth3.Success; error_type = 3; flag=1; break; end    % The failure of WithThenHold indicates that the subject didn't maintain fixation on the stimulus.
 
         if isi_duration ~= 0
-            run_scene(sceneISI,10);
+            run_scene(sceneISI,21);
             if ~wth4.Success; error_type = 3; flag=1; break; end
         else
-            eventmarker(10);
+            eventmarker(21);
         end
     end
     if flag==1; break; end
-
-    run_scene(sceneStim{stim_per_trial},20);        % Run the scene for presenting last stimulus (eventmarker 20)
-    if ~wth3.Success; error_type = 3; break; end    % The failure of WithThenHold indicates that the subject didn't maintain fixation on the stimulus.
+    run_scene(sceneStim{stim_per_trial},11);        % Run the scene for presenting last stimulus (eventmarker 20)
+    if ~wth3.Success; error_type = 3;
+        eventmarker(3);
+        idle(2000); % Stimulation can end properly and device can load properly for the next trial
+        disp('Aborting...');
+        break;
+    end    % The failure of WithThenHold indicates that the subject didn't maintain fixation on the stimulus.
     
     idle(0);            % Clear screens
+
     goodmonkey(pulse_duration, 'juiceline',1, 'numreward',1, 'pausetime',0, 'eventmarker',50);   % Successful trial, give reward
+    
     break
 end
 
