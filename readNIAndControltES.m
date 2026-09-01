@@ -2,7 +2,7 @@
 % and                                                      
 % controls the tES device based on the instructions through the NI card
 
-% MATLAB Data Acquisition Toolbox and NI-DAQmx must both be installed
+% MATLAB Data Acquisition Toolbox and NI-DAQmx both must be installed
 
 function readNIAndControltES
 % 1. Configure the NI card
@@ -37,11 +37,11 @@ disp('---------------------------------------------------------')
 disp('Connect GUI to the stimulation device.')
 disp('---------------------------------------------------------')
 
-pIntensity = struct("Action",7,"Intensity",0.1); % From -3 mA to +3 mA
+pIntensity = struct('Action',7,'Intensity',0.25); % From -3 mA to +3 mA
 JSONIntensity = jsonencode(pIntensity);
 ptACS = struct('Action',7,'WaveformType','tACS'); % -tACS- or tDCS or tRNS
 JSONtACS = jsonencode(ptACS);
-pDuration = struct("Action",7,"Duration",3); % From 10 sec to 7200 sec
+pDuration = struct("Action",7,"Duration",3); % From 3 sec (says 10 sec in their manual) to 7200 sec
 JSONDuration = jsonencode(pDuration);
 pDelay = struct("Action",7,"Delay",0); % From 0 msec to 600 msec
 JSONDelay = jsonencode(pDelay);
@@ -51,6 +51,9 @@ pChannel2 = struct("Action",0,"ChannelNumber",2); % Channel to be stimulated
 JSONaddChannel2 = jsonencode(pChannel2);
 pFrequency2 = struct('Action',7,'ChannelNumber',2,'Frequency',20); %250); % From 0.1 Hz to 5,000 Hz
 JSONFrequency2 = jsonencode(pFrequency2);
+
+% NOTE: In the case of more channels than one, add their numbers and frequencies in the above format
+
 pLoad = struct("Action",3);
 JSONLoad = jsonencode(pLoad);
 
@@ -61,10 +64,11 @@ outlet.push_sample({JSONDelay}); pause(0.1)
 outlet.push_sample({JSONRampUp}); pause(0.1)
 outlet.push_sample({JSONaddChannel2}); pause(0.1)
 outlet.push_sample({JSONFrequency2}); pause(0.1)
-outlet.push_sample({JSONLoad}); pause(0.5)
-disp('Loaded once')
+% outlet.push_sample({JSONDisableImpedance}); pause(0.1); disp('Impedance is now ON')
+outlet.push_sample({JSONLoad}); pause(0.5); disp('Loaded once')
 
 oldDigitalCode = 0;
+isImpedanceON = 1;
 
     while(1) % Do this continuously
         digitalCode = bin2dec(fliplr(num2str(table2array(read(dq))))); % Read the digital code from the NI card
@@ -78,26 +82,72 @@ oldDigitalCode = 0;
         disp(digitalCode);
 
     % Load at the end of the trial
-        if digitalCode==2 % trial end
-            % load tACS
-            pLoad = struct("Action",3);
-            JSONLoad = jsonencode(pLoad);
-            outlet.push_sample({JSONLoad});
-            disp('Loaded for the next trial')
+        if digitalCode == 2 % trial end
+            if isImpedanceON == 0
+            pause(1)
+            % Turn Impedance ON before stimulating in the next trial
+            pDisableImpedance = struct('Action',8, 'value', 'FALSE');
+            JSONDisableImpedance = jsonencode(pDisableImpedance);
+            outlet.push_sample({JSONDisableImpedance}); 
+            isImpedanceON = 1;
+            pause(2)
+            disp('Impedance is now ON for the next trial')
 
-        elseif digitalCode==7 % stimulation start
+            end
+
+            % isImpedanceON = 0;
+
+            % load the tACS device
+            % pLoad = struct('Action',3);
+            % JSONLoad = jsonencode(pLoad);
+            outlet.push_sample({JSONLoad});
+
+            disp('Device loaded for the next trial')
+            % pause(2);
+
+
+        elseif digitalCode == 7 % stimulation start
+            
             % run stimulation
-            pStartStimulation = struct("Action",4);
+            pStartStimulation = struct("Action",4); % Stimulate
             StartJSON = jsonencode(pStartStimulation);
             outlet.push_sample({StartJSON});
-            disp('Started')
+            disp('Stimulation Started')
 
-        elseif digitalCode==3 % stimulation stop
-            % stop stimulation
-            pStopStimulation = struct("Action",5);
-            StopJSON = jsonencode(pStopStimulation);
-            outlet.push_sample({StopJSON});
-            disp('Aborting...')
+            pause(2.2)
+
+            pDisableImpedance = struct('Action',8, 'value', 'TRUE');
+            JSONDisableImpedance = jsonencode(pDisableImpedance);
+            outlet.push_sample({JSONDisableImpedance});
+            isImpedanceON = 0;
+
+        elseif digitalCode == 4 % SHAM
+
+            disp('SHAM trial')
+
+            % pause(2.2)
+
+            pDisableImpedance = struct('Action',8, 'value', 'TRUE');
+            JSONDisableImpedance = jsonencode(pDisableImpedance);
+            outlet.push_sample({JSONDisableImpedance});
+            isImpedanceON = 0;
+
+
+        elseif digitalCode == 3 % stimulation stop
+
+            % % stop stimulation
+            % pStopStimulation = struct('Action',5);
+            % StopJSON = jsonencode(pStopStimulation);
+            % outlet.push_sample({StopJSON});
+            % disp('Aborting...')
+   
+        elseif digitalCode == 8
+            if isImpedanceON == 1
+                pDisableImpedance = struct('Action',8, 'value', 'TRUE');
+                JSONDisableImpedance = jsonencode(pDisableImpedance);
+                outlet.push_sample({JSONDisableImpedance});
+                isImpedanceON = 0;
+            end
         end
     end
 end
